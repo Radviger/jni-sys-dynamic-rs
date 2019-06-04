@@ -1,8 +1,11 @@
 #![doc(html_root_url="https://docs.rs/jni-sys/0.3.0")]
 #![allow(non_snake_case, non_camel_case_types)]
 
+extern crate libloading as lib;
+
 use std::os::raw::c_void;
 use std::os::raw::c_char;
+use std::ffi::OsStr;
 
 // FIXME is this sufficiently correct?
 pub type va_list = *mut c_void;
@@ -1506,12 +1509,41 @@ impl Clone for JNIInvokeInterface_ {
     }
 }
 
-extern "system" {
-    pub fn JNI_GetDefaultJavaVMInitArgs(args: *mut c_void) -> jint;
-    pub fn JNI_CreateJavaVM(
-        pvm: *mut *mut JavaVM,
-        penv: *mut *mut c_void,
-        args: *mut c_void,
-    ) -> jint;
-    pub fn JNI_GetCreatedJavaVMs(vmBuf: *mut *mut JavaVM, bufLen: jsize, nVMs: *mut jsize) -> jint;
+pub struct JNILibrary {
+    inner: lib::Library
+}
+
+impl JNILibrary {
+    pub fn new<P: AsRef<OsStr>>(path: P) -> lib::Result<JNILibrary> {
+        let inner = lib::Library::new(path)?;
+        Ok(JNILibrary { inner })
+    }
+
+    pub unsafe fn get_default_java_vm_init_args(&self, args: *mut c_void) -> lib::Result<jint> {
+        type FN = unsafe extern "system" fn(
+            args: *mut c_void
+        ) -> jint;
+
+        Ok((self.inner.get::<FN>(b"JNI_GetDefaultJavaVMInitArgs")?)(args))
+    }
+
+    pub unsafe fn create_java_vm(&self, pvm: *mut *mut JavaVM, penv: *mut *mut c_void, args: *mut c_void) -> lib::Result<jint> {
+        type FN = unsafe extern "system" fn(
+            pvm: *mut *mut JavaVM,
+            penv: *mut *mut c_void,
+            args: *mut c_void,
+        ) -> jint;
+
+        Ok(self.inner.get::<FN>(b"JNI_CreateJavaVM")?(pvm, penv, args))
+    }
+
+    pub unsafe fn get_created_java_vms(&self, vmBuf: *mut *mut JavaVM, bufLen: jsize, nVMs: *mut jsize) -> lib::Result<jint> {
+        type FN = unsafe extern "system" fn(
+            vmBuf: *mut *mut JavaVM,
+            bufLen: jsize,
+            nVMs: *mut jsize
+        ) -> jint;
+
+        Ok(self.inner.get::<FN>(b"JNI_GetCreatedJavaVMs")?(vmBuf, bufLen, nVMs))
+    }
 }
