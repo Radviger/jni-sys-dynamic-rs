@@ -6,6 +6,7 @@ extern crate libloading as lib;
 use std::os::raw::c_void;
 use std::os::raw::c_char;
 use std::ffi::OsStr;
+use lib::Symbol;
 
 // FIXME is this sufficiently correct?
 pub type va_list = *mut c_void;
@@ -1545,5 +1546,9 @@ impl JNILibrary {
         ) -> jint;
 
         Ok(self.inner.get::<FN>(b"JNI_GetCreatedJavaVMs")?(vmBuf, bufLen, nVMs))
+    }
+
+    pub unsafe fn get_symbol<T>(&self, symbol: &[u8]) -> lib::Result<Symbol<T>> {
+        self.inner.get::<T>(symbol)
     }
 }
